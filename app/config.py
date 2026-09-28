@@ -1,18 +1,31 @@
 import os
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-load_dotenv()
 
-class Settings:
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    DATABASE_PATH: str = os.getenv("DATABASE_PATH", "catalog_qc.db")
-    VISION_MODEL: str = os.getenv("VISION_MODEL", "gemini-3.8-flash")
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-004")
-    
-    VISION_CONFIDENCE_THRESHOLD: float = float(os.getenv("VISION_CONFIDENCE_THRESHOLD", "0.80"))
-    SIMILARITY_THRESHOLD: float = float(os.getenv("SIMILARITY_THRESHOLD", "0.75"))
+class Settings(BaseSettings):
+    # Application Configuration
+    APP_NAME: str = "E-Commerce Catalog QC Engine"
+    DEBUG: bool = True
+    DATABASE_URL: str = "catalog_qc.db"
+    DATABASE_PATH: str = "catalog_qc.db"
+
+    # OpenRouter Configuration
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_MODEL: str = "openrouter/free"
+    VISION_MODEL: str = "openrouter/free"
+
+    # Vision & Embedding Settings
+    VISION_CONFIDENCE_THRESHOLD: float = 0.70
+    EMBEDDING_MODEL: str = "openai/text-embedding-3-small"
+
+    # Similarity Threshold for Matching
+    SIMILARITY_THRESHOLD: float = 0.25
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+
 
 settings = Settings()
-
-if not settings.GEMINI_API_KEY:
-    print("WARNING: GEMINI_API_KEY is not set in environment or .env file!")

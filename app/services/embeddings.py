@@ -1,8 +1,14 @@
+import os
 import math
-from google import genai
+from openai import OpenAI
 from app.config import settings
 
-client = genai.Client(api_key=settings.GEMINI_API_KEY) if settings.GEMINI_API_KEY else None
+api_key = getattr(settings, "OPENROUTER_API_KEY", None) or os.getenv("OPENROUTER_API_KEY")
+
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key if api_key else "placeholder"
+)
 
 def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
     """Calculates cosine similarity between two float vectors."""
@@ -20,33 +26,15 @@ def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
 
 
 def generate_text_embedding(text: str) -> list[float]:
-    """Generates a text vector embedding using active Gemini embedding endpoints."""
-    if not client:
-        raise RuntimeError("GEMINI_API_KEY is not configured.")
+    """Generates vector embeddings using OpenRouter's embeddings API."""
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY is not set.")
 
-    # Candidate embedding model endpoints
-    candidate_models = ["gemini-embedding-2", "gemini-embedding-001", "text-embedding-004"]
-    result = None
-    last_error = None
+    model_name = getattr(settings, "EMBEDDING_MODEL", "openai/text-embedding-3-small")
 
-    for model in candidate_models:
-        try:
-            result = client.models.embed_content(
-                model=model,
-                contents=text,
-            )
-            break
-        except Exception as e:
-            last_error = e
-            continue
+    response = client.embeddings.create(
+        model=model_name,
+        input=text
+    )
 
-    if not result:
-        raise RuntimeError(f"All embedding models failed. Last error: {last_error}")
-
-    # Extract float values from response object
-    if hasattr(result, "embedding") and hasattr(result.embedding, "values"):
-        return result.embedding.values
-    elif hasattr(result, "embeddings") and len(result.embeddings) > 0:
-        return result.embeddings[0].values
-    else:
-        raise ValueError("Unexpected response format from embedding API.")
+    return response.data[0].embedding

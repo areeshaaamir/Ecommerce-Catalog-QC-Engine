@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catalog QC Dashboard & Reverse Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen p-8">
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-xl shadow-sm border border-slate-200 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">E-Commerce Catalog QC Engine</h1>
+                <p class="text-slate-500 text-sm">Real-time vision tag analysis & semantic reverse lookup</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                <a href="#gallery" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-sm transition">
+                    View All Catalog Images ({{ all_images|length }})
+                </a>
+            </div>
+        </header>
+
+        <!-- Direct Catalog Image Upload Widget -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <h2 class="text-lg font-bold text-slate-900">Upload New Catalog Product Image</h2>
+            <p class="text-xs text-slate-500">Upload an image file directly into the repository. The vision model will auto-tag and index it into the database for immediate QC & search lookups.</p>
+            
+            <form action="/dashboard/upload" method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row gap-3 items-center">
+                <input 
+                    type="file" 
+                    name="file" 
+                    accept="image/*" 
+                    required 
+                    class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-slate-200 rounded-lg cursor-pointer bg-slate-50"
+                />
+                <button type="submit" class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm transition whitespace-nowrap">
+                    Upload & Process AI Tags
+                </button>
+            </form>
+        </div>
+
+        <!-- Search Bar Section -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <h2 class="text-lg font-bold text-slate-900">Reverse Image Semantic Search</h2>
+            <p class="text-xs text-slate-500">Type any product description to perform real-time vector embedding similarity lookup across your entire photo catalog.</p>
+            
+            <form action="/dashboard" method="GET" class="flex gap-3">
+                <input 
+                    type="text" 
+                    name="q" 
+                    value="{{ query }}" 
+                    placeholder="e.g. black fur jacket, yellow shoulder bag, white running sneakers..." 
+                    class="flex-1 px-4 py-3 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    required
+                />
+                <button type="submit" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
+                    Search Candidates
+                </button>
+                {% if query %}
+                    <a href="/dashboard" class="px-4 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-semibold rounded-lg transition">
+                        Clear
+                    </a>
+                {% endif %}
+            </form>
+
+            <!-- Search Results Display -->
+            {% if query %}
+                <div class="pt-4 border-t border-slate-200">
+                    <h3 class="text-md font-semibold text-slate-800 mb-4">
+                        Search Results for: <span class="text-indigo-600 font-bold">"{{ query }}"</span>
+                    </h3>
+
+                    {% if search_results %}
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {% for match in search_results %}
+                                <div class="bg-slate-50 border {% if loop.first %}border-indigo-500 ring-2 ring-indigo-200{% else %}border-slate-200{% endif %} rounded-xl overflow-hidden flex flex-col justify-between">
+                                    <div>
+                                        <div class="relative bg-slate-200 h-48 flex items-center justify-center overflow-hidden">
+                                            <img src="{{ match.image_url }}" alt="Product Image" class="h-full w-full object-cover" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\'text-xs text-slate-400 p-4 text-center\'>Local Image: {{ match.file_path }}</span>';"/>
+                                            <span class="absolute top-2 left-2 px-2.5 py-1 text-xs font-bold rounded-full shadow-sm {% if loop.first %}bg-indigo-600 text-white{% else %}bg-slate-800 text-slate-100{% endif %}">
+                                                Rank #{{ loop.index }}
+                                            </span>
+                                            <span class="absolute top-2 right-2 px-2.5 py-1 text-xs font-mono font-bold rounded-full bg-white/90 text-slate-900 border border-slate-300 shadow-sm">
+                                                Score: {{ "%.4f"|format(match.score) }}
+                                            </span>
+                                        </div>
+                                        <div class="p-4 space-y-2">
+                                            <p class="text-xs font-semibold uppercase text-indigo-600 tracking-wider">{{ match.category }}</p>
+                                            <p class="text-xs text-slate-700 font-medium line-clamp-3" title="{{ match.context }}">{{ match.context }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="p-4 bg-slate-100 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500">
+                                        <span class="font-mono truncate max-w-[200px]" title="{{ match.file_path }}">{{ match.file_path }}</span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <!-- Product Not Found UI -->
+                        <div class="p-6 bg-rose-50 border border-rose-200 rounded-xl text-center space-y-2">
+                            <p class="text-base font-bold text-rose-800">Product Not Found</p>
+                            <p class="text-xs text-rose-600">No images in the catalog matched "{{ query }}" above the required similarity relevance threshold (0.35).</p>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Stats Overview Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Evaluated</p>
+                <p class="text-3xl font-extrabold text-slate-900 mt-2">{{ total_evaluations }}</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Verified Matches</p>
+                <p class="text-3xl font-extrabold text-emerald-600 mt-2">{{ matches_count }}</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Flagged Mismatches</p>
+                <p class="text-3xl font-extrabold text-rose-600 mt-2">{{ mismatches_count }}</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Avg Similarity Score</p>
+                <p class="text-3xl font-extrabold text-indigo-600 mt-2">{{ avg_score }}</p>
+            </div>
+        </div>
+
+        <!-- View All Images Catalog Gallery Section -->
+        <div id="gallery" class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Catalog Image Repository</h2>
+                    <p class="text-xs text-slate-500">Showing all {{ all_images|length }} ingested images stored in database</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 pt-2">
+                {% for img in all_images %}
+                    <div class="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden flex flex-col justify-between hover:shadow-md transition">
+                        <div class="bg-slate-200 h-28 flex items-center justify-center overflow-hidden relative">
+                            <img src="{{ img.image_url }}" alt="Catalog Photo" class="h-full w-full object-cover" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\'text-[10px] text-slate-400 p-2 text-center\'>{{ img.subject }}</span>';"/>
+                            <span class="absolute bottom-1 right-1 text-[9px] px-1.5 py-0.5 rounded font-bold {% if img.status == 'PROCESSED' %}bg-emerald-600{% else %}bg-amber-600{% endif %} text-white">
+                                {{ img.status }}
+                            </span>
+                        </div>
+                        <div class="p-2 space-y-1">
+                            <p class="text-[11px] font-bold text-slate-800 truncate" title="{{ img.subject }}">{{ img.subject }}</p>
+                            <p class="text-[10px] text-slate-500 truncate" title="{{ img.caption }}">{{ img.caption }}</p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Evaluation Logs Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                <h2 class="text-lg font-semibold text-slate-800">Recent Audit Evaluations</h2>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                            <th class="px-6 py-3">Photo ID</th>
+                            <th class="px-6 py-3">Listing Title / Context</th>
+                            <th class="px-6 py-3">Extracted Vision Tags</th>
+                            <th class="px-6 py-3">Similarity Score</th>
+                            <th class="px-6 py-3">Status Verdict</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 text-sm">
+                        {% for eval in evaluations %}
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="px-6 py-4 font-mono text-xs font-bold text-slate-700">
+                                {{ eval.photo_id }}
+                            </td>
+                            <td class="px-6 py-4 max-w-xs">
+                                <p class="font-medium text-slate-900 truncate" title="{{ eval.listing_text }}">{{ eval.listing_text }}</p>
+                            </td>
+                            <td class="px-6 py-4 max-w-sm">
+                                <p class="text-xs text-slate-600 truncate" title="{{ eval.photo_summary }}">{{ eval.photo_summary }}</p>
+                            </td>
+                            <td class="px-6 py-4 font-mono font-bold">
+                                {{ "%.4f"|format(eval.similarity_score) }}
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if eval.verdict == 'MATCH' %}
+                                    <span class="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                        MATCH
+                                    </span>
+                                {% else %}
+                                    <span class="px-3 py-1 text-xs font-semibold rounded-full bg-rose-100 text-rose-700 border border-rose-200">
+                                        MISMATCH
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
